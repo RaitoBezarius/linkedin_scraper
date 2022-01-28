@@ -166,20 +166,16 @@ class Person(Scraper):
 
                 try:
                     company = position.find_elements_by_tag_name("p")[1].text.strip()
-                    times = str(
-                        position.find_elements_by_tag_name("h4")[0]
-                        .find_elements_by_tag_name("span")[1]
-                        .text.strip()
-                    )
-                    from_date = " ".join(times.split(" ")[:2])
-                    to_date = " ".join(times.split(" ")[3:])
+                    times = (position.find_element_by_class_name("pv-entity__date-range")
+                             .find_element_by_tag_name("span").text.strip())
+                    from_date, to_date = times.split("–")
                     duration = (
                         position.find_elements_by_tag_name("h4")[1]
                         .find_elements_by_tag_name("span")[1]
                         .text.strip()
                     )
                     location = (
-                        position.find_elements_by_tag_name("h4")[2]
+                        position.find_element_by_class_name("pv-entity__location")
                         .find_elements_by_tag_name("span")[1]
                         .text.strip()
                     )
