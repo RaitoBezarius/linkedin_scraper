@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from selenium.webdriver import Chrome
 
@@ -25,20 +26,21 @@ class Institution:
 
 @dataclass
 class Experience(Institution):
-    from_date: str = None
-    to_date: str = None
-    description: str = None
-    position_title: str = None
-    duration: str = None
-    location: str = None
+    from_date: Optional[str] = None
+    to_date: Optional[str] = None
+    description: Optional[str] = None
+    position_title: Optional[str] = None
+    duration: Optional[str] = None
+    location: Optional[str] = None
+    institution_name: Optional[str] = None
 
 
 @dataclass
 class Education(Institution):
-    from_date: str = None
-    to_date: str = None
-    description: str = None
-    degree: str = None
+    from_date: Optional[str] = None
+    to_date: Optional[str] = None
+    description: Optional[str] = None
+    degree: Optional[str] = None
 
 
 @dataclass
