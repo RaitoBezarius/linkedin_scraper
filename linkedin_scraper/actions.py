@@ -1,6 +1,6 @@
 import getpass
 from . import constants as c
-from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support.wait import WebDriverWait, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -13,21 +13,26 @@ def page_has_loaded(driver):
     page_state = driver.execute_script('return document.readyState;')
     return page_state == 'complete'
 
-def paginate_scrape(action, page_index):
-    pass
-
 def search(driver, text, timeout=10):
     driver.get("https://www.linkedin.com/search/results/all/?keywords={}&origin=GLOBAL_SEARCH_HEADER&sid=zaf".format(text))
     MORE_RESULTS = "div.search-results__cluster-bottom-banner.artdeco-button.artdeco-button--tertiary.artdeco-button--muted > a"
     PAGE_INDICATOR = ".artdeco-pagination__indicator > button > span"
-    WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.CSS_SELECTOR, MORE_RESULTS))).click()
+    try:
+        WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, MORE_RESULTS))).click()
+    except TimeoutException:
+        return [(item.text.split('\n')[0], item.get_attribute('href')) for item in (item.find_element_by_tag_name("a") for item in driver.find_elements_by_class_name("entity-result__title-line"))]
     WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.CLASS_NAME, "entity-result__title-line")))
     driver.execute_script(
             "window.scrollTo(0, Math.ceil(document.body.scrollHeight/2));"
         )
-    pages_indicators = WebDriverWait(driver, timeout).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, PAGE_INDICATOR)))
+    try:
+        pages_indicators = WebDriverWait(driver, 3).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, PAGE_INDICATOR)))
+    except TimeoutException:
+        driver.execute_script(
+                    "window.scrollTo(0, 0);"
+                )
+        return [(item.text.split('\n')[0], item.get_attribute('href')) for item in (item.find_element_by_tag_name("a") for item in driver.find_elements_by_class_name("entity-result__title-line"))]
     n_pages = int(pages_indicators[-1].text)
-    print('n pages', n_pages)
     results = []
 
     for index in range(1, n_pages + 1):
