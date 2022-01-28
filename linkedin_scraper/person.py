@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from .objects import Experience, Education, Scraper, Interest, Accomplishment, Contact
 import os
+import time
 from linkedin_scraper import selectors
 
 
@@ -90,14 +91,14 @@ class Person(Scraper):
             x = input("please verify the capcha then press any key to continue...")
             self.scrape_not_logged_in(close_on_complete=close_on_complete)
 
-    def _click_see_more_by_class_name(self, class_name):
+    def _click_see_more_by_class_name(self, driver, class_name):
         try:
-            _ = WebDriverWait(self.driver, self.__WAIT_FOR_ELEMENT_TIMEOUT).until(
+            button = WebDriverWait(self.driver, self.__WAIT_FOR_ELEMENT_TIMEOUT).until(
                 EC.presence_of_element_located((By.CLASS_NAME, class_name))
-            )
-            div = self.driver.find_element_by_class_name(class_name)
-            div.find_element_by_tag_name("button").click()
+            ).find_element_by_tag_name('button')
+            driver.execute_script("arguments[0].click();", button)
         except Exception as e:
+            print('click failed', e, e.__class__)
             pass
 
     def scrape_logged_in(self, close_on_complete=True):
@@ -146,11 +147,12 @@ class Person(Scraper):
 
         # get experience
         driver.execute_script(
-            "window.scrollTo(0, Math.ceil(document.body.scrollHeight*3/5));"
+            "window.scrollTo(0, Math.ceil(document.body.scrollHeight*2/7));"
         )
 
         ## Click SEE MORE
-        self._click_see_more_by_class_name("pv-experience-section__see-more")
+        print('waiting then click to see more exp')
+        self._click_see_more_by_class_name(driver, "experience-section")
 
         try:
             _ = WebDriverWait(driver, self.__WAIT_FOR_ELEMENT_TIMEOUT).until(
@@ -163,12 +165,14 @@ class Person(Scraper):
         if exp is not None:
             for position in exp.find_elements_by_class_name("pv-position-entity"):
                 position_title = position.find_element_by_tag_name("h3").text.strip()
+                company = None
+                from_date, to_date, duration, location = (None, None, None, None)
 
                 try:
                     company = position.find_elements_by_tag_name("p")[1].text.strip()
                     times = (position.find_element_by_class_name("pv-entity__date-range")
-                             .find_element_by_tag_name("span").text.strip())
-                    from_date, to_date = times.split("–")
+                             .find_elements_by_tag_name("span")[1].text.strip())
+                    from_date, to_date = list(map(str.strip, times.split("–")))
                     duration = (
                         position.find_elements_by_tag_name("h4")[1]
                         .find_elements_by_tag_name("span")[1]
@@ -179,9 +183,8 @@ class Person(Scraper):
                         .find_elements_by_tag_name("span")[1]
                         .text.strip()
                     )
-                except:
-                    company = None
-                    from_date, to_date, duration, location = (None, None, None, None)
+                except Exception as e:
+                    pass
 
                 experience = Experience(
                     position_title=position_title,
@@ -189,8 +192,8 @@ class Person(Scraper):
                     to_date=to_date,
                     duration=duration,
                     location=location,
+                    institution_name=company
                 )
-                experience.institution_name = company
                 self.add_experience(experience)
 
         # get location
@@ -199,12 +202,12 @@ class Person(Scraper):
         self.add_location(location)
 
         driver.execute_script(
-            "window.scrollTo(0, Math.ceil(document.body.scrollHeight/1.5));"
+            "window.scrollTo(0, Math.ceil(document.body.scrollHeight*3/7));"
         )
 
         # get education
         ## Click SEE MORE
-        self._click_see_more_by_class_name("pv-education-section__see-more")
+        self._click_see_more_by_class_name(driver, "education-section")
         try:
             _ = WebDriverWait(driver, self.__WAIT_FOR_ELEMENT_TIMEOUT).until(
                 EC.presence_of_element_located((By.ID, "education-section"))
@@ -220,6 +223,9 @@ class Person(Scraper):
                     "pv-entity__school-name"
                 ).text.strip()
 
+                degree = None
+                from_date, to_date = None, None
+
                 try:
                     degree = (
                         school.find_element_by_class_name("pv-entity__degree-name")
@@ -231,10 +237,10 @@ class Person(Scraper):
                         .find_elements_by_tag_name("span")[1]
                         .text.strip()
                     )
-                    from_date, to_date = (times.split(" ")[0], times.split(" ")[2])
+                    from_date, to_date = list(map(str.strip, times.split("–")))
                 except:
-                    degree = None
-                    from_date, to_date = (None, None)
+                    pass
+
                 education = Education(
                     from_date=from_date, to_date=to_date, degree=degree
                 )
@@ -289,25 +295,6 @@ class Person(Scraper):
                     self.add_accomplishment(accomplishment)
         except:
             pass
-
-        # get connections
-        try:
-            driver.get("https://www.linkedin.com/mynetwork/invite-connect/connections/")
-            _ = WebDriverWait(driver, self.__WAIT_FOR_ELEMENT_TIMEOUT).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "mn-connections"))
-            )
-            connections = driver.find_element_by_class_name("mn-connections")
-            if connections is not None:
-                for conn in connections.find_elements_by_class_name("mn-connection-card"):
-                    anchor = conn.find_element_by_class_name("mn-connection-card__link")
-                    url = anchor.get_attribute("href")
-                    name = conn.find_element_by_class_name("mn-connection-card__details").find_element_by_class_name("mn-connection-card__name").text.strip()
-                    occupation = conn.find_element_by_class_name("mn-connection-card__details").find_element_by_class_name("mn-connection-card__occupation").text.strip()
-
-                    contact = Contact(name=name, occupation=occupation, url=url)
-                    self.add_contact(contact)
-        except:
-            connections = None
 
         if close_on_complete:
             driver.quit()
